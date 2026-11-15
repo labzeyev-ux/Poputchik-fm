@@ -74,9 +74,20 @@ def load_jingle(seconds=15):
     j[:fi] *= np.linspace(0, 1, fi); j[-fo:] *= np.linspace(1, 0, fo)
     return j * 0.5
 
+def load_song(path):
+    raw = subprocess.run(["ffmpeg","-v","error","-i",path,"-ac","1","-ar",str(SR),"-f","f32le","-"],
+                         capture_output=True, check=True).stdout
+    j = np.frombuffer(raw, dtype="<f4").copy()
+    fi, fo = int(SR*0.3), int(SR*3)
+    j[:fi] *= np.linspace(0, 1, fi); j[-fo:] *= np.linspace(1, 0, fo)
+    return j / (np.abs(j).max() or 1) * 0.5
+
 jingle = load_jingle()
 gap = np.zeros(int(SR*0.4), dtype=np.float32)
-full = np.concatenate([jingle, gap, speech, gap, jingle])
+# в конце выпуска: песня канала (assets/song.mp3), если она есть, иначе джингл
+song_path = next(iter(glob.glob("assets/song.*")), None)
+ending = load_song(song_path) if song_path else jingle
+full = np.concatenate([jingle, gap, speech, gap, ending])
 pcm = (np.clip(full, -1, 1) * 32767).astype("<i2").tobytes()
 open(f"{out}/raw.pcm", "wb").write(pcm)
 subprocess.run(["ffmpeg","-y","-v","error","-f","s16le","-ar",str(SR),"-ac","1","-i",f"{out}/raw.pcm",
