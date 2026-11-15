@@ -1,10 +1,13 @@
 name: Build issue
 on:
+  push:
+    paths:
+      - "issues/*/script.txt"
   workflow_dispatch:
     inputs:
       issue:
         description: "Папка выпуска, например issues/2026-11-15"
-        required: true
+        required: false
 permissions:
   contents: write
 jobs:
@@ -13,6 +16,17 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Pick issue
+        id: pick
+        run: |
+          I="${{ inputs.issue }}"
+          if [ -z "$I" ]; then
+            I="$(git diff --name-only HEAD~1 HEAD | grep -E '^issues/[^/]+/script\.txt$' | head -1 | xargs -r dirname)"
+          fi
+          [ -n "$I" ] || { echo "нет папки выпуска"; exit 1; }
+          echo "issue=$I" >> "$GITHUB_OUTPUT"
       - name: Install
         run: |
           sudo apt-get update -qq
@@ -21,12 +35,12 @@ jobs:
       - name: Make issue
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python scripts/make_issue.py "${{ inputs.issue }}" out
+        run: python scripts/make_issue.py "${{ steps.pick.outputs.issue }}" out
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="$(basename "${{ inputs.issue }}")"
+          TAG="$(basename "${{ steps.pick.outputs.issue }}")"
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
           gh release create "$TAG" out/video.mp4 out/audio.wav out/cover.png out/meta.json \
             --title "Выпуск $TAG" --notes "Автосборка"
