@@ -229,5 +229,8 @@
       "queries": []
     }
   ],
-  "reuse_audio": true
+  "reuse_audio": true,
+  "retts": [
+    16
+  ]
 }

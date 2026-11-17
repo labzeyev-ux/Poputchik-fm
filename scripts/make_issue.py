@@ -221,9 +221,30 @@ def norm(a):
 
 key = hashlib.sha256(json.dumps([lines, SPK, MODEL], ensure_ascii=False).encode()).hexdigest()[:16]
 speech, bounds, method = None, None, "pauses"
+check_words = {}
 try:
     c = json.load(open(f"{CACHE}/speech.json", encoding="utf-8"))
-    if c.get("key") == key and os.path.exists(f"{CACHE}/speech.wav"):
+    retts = set(meta.get("retts") or [])  # номера строк (с 1), которые надо переозвучить
+    if c.get("lines") and len(c["lines"]) == len(lines):
+        retts |= {k + 1 for k, (x, y) in enumerate(zip(c["lines"], lines)) if x != y}
+    if c.get("key") != key and retts and len(c.get("bounds", [])) == len(lines) + 1 and os.path.exists(f"{CACHE}/speech.wav"):
+        # переозвучиваем только изменённые строки, остальную речь берём из кэша
+        old_sp, ob = load_audio(f"{CACHE}/speech.wav"), c["bounds"]
+        parts_, nb = [], [0]
+        for k in range(len(lines)):
+            if k + 1 in retts:
+                print(f"переозвучка строки {k+1}", flush=True)
+                seg = norm(tts([lines[k]]))
+                idx = np.where(np.abs(seg) > 0.01)[0]
+                if len(idx): seg = seg[max(0, idx[0] - int(SR * 0.05)): idx[-1] + int(SR * 0.1)]
+                seg = np.concatenate([seg, np.zeros(int(SR * 0.6), dtype=np.float32)])
+                check_words[k] = seg
+            else:
+                seg = old_sp[ob[k]:ob[k + 1]]
+            parts_.append(seg); nb.append(nb[-1] + len(seg))
+        speech, bounds, method = np.concatenate(parts_), nb, c.get("method", "pauses")
+        print(f"речь собрана из кэша, переозвучено строк: {sorted(retts)}", flush=True)
+    elif c.get("key") == key and os.path.exists(f"{CACHE}/speech.wav"):
         speech, bounds, method = load_audio(f"{CACHE}/speech.wav"), c["bounds"], c.get("method", "pauses")
         print(f"речь взята из кэша (озвучка не нужна), границы: {method}", flush=True)
         if method != "whisper":
@@ -257,7 +278,21 @@ os.makedirs(f"{out}/cache", exist_ok=True)
 sf = (np.clip(speech, -1, 1) * 32767).astype("<i2").tobytes()
 open(f"{work}/speech.pcm", "wb").write(sf)
 run(["ffmpeg", "-y", "-v", "error", "-f", "s16le", "-ar", str(SR), "-ac", "1", "-i", f"{work}/speech.pcm", f"{out}/speech.wav"])
-json.dump({"key": key, "bounds": [int(x) for x in bounds], "method": method}, open(f"{out}/speech.json", "w"))
+json.dump({"key": key, "bounds": [int(x) for x in bounds], "method": method, "lines": lines},
+          open(f"{out}/speech.json", "w", encoding="utf-8"), ensure_ascii=False)
+
+# проверка переозвученных строк: что услышит зритель (распознавание речи)
+if check_words:
+    try:
+        from faster_whisper import WhisperModel
+        _m = WhisperModel(os.environ.get("WHISPER_MODEL", "small"), device="cpu", compute_type="int8")
+        for k, seg in check_words.items():
+            a16 = np.interp(np.arange(0, len(seg), SR / 16000), np.arange(len(seg)), seg).astype(np.float32)
+            txt = " ".join(x.text.strip() for x in _m.transcribe(a16, language="ru", beam_size=5)[0])
+            print(f"ПРОВЕРКА строки {k+1}: {txt}", flush=True)
+            open(f"{out}/check.txt", "a", encoding="utf-8").write(f"{k+1}: {txt}\n")
+    except Exception as e:
+        print("проверка распознаванием не удалась:", e, flush=True)
 
 def fade(j, fi, fo):
     j[:fi] *= np.linspace(0, 1, fi); j[-fo:] *= np.linspace(1, 0, fo); return j
