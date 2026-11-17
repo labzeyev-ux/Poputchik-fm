@@ -1,0 +1,11 @@
+name: Probe footage sources
+on:
+  push:
+    branches: [claude/eloquent-babbage-ou6ng9]
+    paths: [".github/workflows/probe.yml", "scripts/probe.py"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/probe.py
