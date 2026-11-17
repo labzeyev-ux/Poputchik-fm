@@ -31,7 +31,20 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
-          pip install numpy requests pillow
+          pip install numpy requests pillow faster-whisper
+      - name: Speech cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BASE="$(basename "${{ steps.pick.outputs.issue }}")"
+          mkdir -p cache
+          for T in "$BASE" "$BASE-test"; do
+            gh release download "$T" -p speech.wav -p speech.json -D cache --clobber 2>/dev/null && break || true
+          done
+          if grep -q '"reuse_audio": true' "${{ steps.pick.outputs.issue }}/meta.json" && [ ! -f cache/speech.wav ]; then
+            gh release download "$BASE" -p audio.wav -O cache/legacy_audio.wav 2>/dev/null || true
+          fi
+          ls -la cache
       - name: Make issue
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -44,5 +57,5 @@ jobs:
           # сборка не из main — тестовая, отдельный тег, основной выпуск не трогаем
           [ "${GITHUB_REF_NAME}" = "main" ] || TAG="${TAG}-test"
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          gh release create "$TAG" out/video.mp4 out/audio.wav out/cover.png out/meta.json out/credits.txt out/contact.jpg \
+          gh release create "$TAG" out/video.mp4 out/audio.wav out/cover.png out/meta.json out/credits.txt out/contact.jpg out/speech.wav out/speech.json \
             --title "Выпуск $TAG" --notes-file out/credits.txt

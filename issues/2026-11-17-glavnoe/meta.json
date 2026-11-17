@@ -255,5 +255,6 @@
         "Berlin aerial evening"
       ]
     }
-  ]
+  ],
+  "reuse_audio": true
 }

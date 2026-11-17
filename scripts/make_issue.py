@@ -51,22 +51,47 @@ def run(cmd):
     return r
 
 # ---------------------------------------------------------------- озвучка
+# Озвучка идёт крупными частями (мало запросов к Gemini), границы сюжетов ищем по паузам.
+# Готовая речь кэшируется (cache/speech.wav + speech.json) и при пересборке не озвучивается заново.
+import hashlib
+CACHE = os.environ.get("SPEECH_CACHE", "cache")
+
 def split_speaker(line):
     for n, _ in SPK:
         if line.startswith(n + ":"):
             return n, line[len(n) + 1:].strip()
     return None, line
 
-def tts(text, voice):
-    body = {"contents": [{"parts": [{"text": text}]}],
-            "generationConfig": {"responseModalities": ["AUDIO"],
-                "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
+def chunk(ls, limit=2500):
+    res, cur, n = [], [], 0
+    for l in ls:
+        if cur and n + len(l) > limit:
+            res.append(cur); cur, n = [], 0
+        cur.append(l); n += len(l)
+    if cur: res.append(cur)
+    return res
+
+def tts(chunk_lines):
+    parts, last = [], SPK[0][0]
+    for l in chunk_lines:
+        sp, t = split_speaker(l); sp = sp or last; last = sp
+        if t: parts.append({"text": t, "speech_metadata": {"speaker": sp}})
+    if len({p["speech_metadata"]["speaker"] for p in parts}) == 1:
+        voice = VOICE.get(parts[0]["speech_metadata"]["speaker"], SPK[0][1])
+        body = {"contents": [{"parts": [{"text": "\n".join(p["text"] for p in parts)}]}],
+                "generationConfig": {"responseModalities": ["AUDIO"],
+                    "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
+    else:
+        body = {"contents": [{"parts": parts}],
+                "generationConfig": {"responseModalities": ["AUDIO"],
+                    "speechConfig": {"multiSpeakerVoiceConfig": {"speakerVoiceConfigs": [
+                        {"speaker": n, "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": v}}} for n, v in SPK[:2]]}}}}
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}"
-    for attempt in range(7):
+    for attempt in range(8):
         try:
             r = requests.post(url, json=body, timeout=300)
         except requests.RequestException as e:
-            print("сеть:", e, file=sys.stderr); time.sleep(8 * (attempt + 1)); continue
+            print("сеть:", e, file=sys.stderr); time.sleep(15 * (attempt + 1)); continue
         if r.status_code == 200:
             try:
                 d = r.json()["candidates"][0]["content"]["parts"][0]["inlineData"]["data"]
@@ -76,35 +101,140 @@ def tts(text, voice):
         elif r.status_code in (400, 403, 404):
             sys.exit(f"TTS error {r.status_code}: {r.text[:500]}")
         else:
-            print(f"retry {attempt}: {r.status_code}", file=sys.stderr)
-        time.sleep(8 * (attempt + 1))
-    sys.exit("TTS failed after retries")
+            print(f"retry {attempt}: {r.status_code} {r.text[:200]}", file=sys.stderr)
+        time.sleep(20 * (attempt + 1))
+    sys.exit("TTS failed after retries (лимит Gemini?)")
 
-if os.environ.get("FAKE_TTS"):  # локальная проверка без сети
-    def tts(text, voice):
-        n = int(SR * len(text) / 15); t = np.arange(n) / SR
-        return (0.2 * np.sin(2 * np.pi * 220 * t) * (np.sin(2 * np.pi * 3 * t) > 0)).astype(np.float32)
+if os.environ.get("FAKE_TTS"):  # локальная проверка без сети: «речь» с паузами между строками
+    def tts(chunk_lines):
+        out_ = []
+        for l in chunk_lines:
+            n = int(SR * len(l) / 15); t = np.arange(n) / SR
+            out_.append((0.2 * np.sin(2 * np.pi * 220 * t) * (np.sin(2 * np.pi * 3 * t) > -0.6)).astype(np.float32))
+            out_.append(np.zeros(int(SR * 0.6), dtype=np.float32))
+        return np.concatenate(out_)
 
-def trim_silence(a, thr=0.004):
-    idx = np.where(np.abs(a) > thr)[0]
-    if len(idx) == 0: return a
-    s = max(0, idx[0] - int(SR * 0.05)); e = min(len(a), idx[-1] + int(SR * 0.12))
-    return a[s:e]
-
-speech_parts = []
-last = SPK[0][0]
-for i, l in enumerate(lines, 1):
-    sp, t = split_speaker(l)
-    sp = sp or last; last = sp
-    print(f"озвучка {i}/{len(lines)}", flush=True)
-    a = trim_silence(tts(t, VOICE.get(sp, SPK[0][1])))
-    rms = np.sqrt(np.mean(a ** 2)) or 1
-    speech_parts.append(a * (0.11 / rms))
-
-def load_audio(path, seconds=None):
-    cmd = ["ffmpeg", "-v", "error", "-i", path] + (["-t", str(seconds)] if seconds else []) + \
-          ["-ac", "1", "-ar", str(SR), "-f", "f32le", "-"]
+def load_audio(path, seconds=None, start=None):
+    cmd = ["ffmpeg", "-v", "error"] + (["-ss", str(start)] if start else []) + ["-i", path] + \
+          (["-t", str(seconds)] if seconds else []) + ["-ac", "1", "-ar", str(SR), "-f", "f32le", "-"]
     return np.frombuffer(subprocess.run(cmd, capture_output=True, check=True).stdout, dtype="<f4").copy()
+
+def silences(a, win=0.02, min_len=0.22):
+    """Список пауз (начало, конец) в отсчётах."""
+    n = int(SR * win); m = len(a) // n
+    if m == 0: return []
+    e = np.sqrt(np.mean(a[:m * n].reshape(m, n) ** 2, axis=1))
+    thr = max(0.006, np.percentile(e, 60) * 0.12)
+    quiet = e < thr; res, st = [], None
+    for i, q in enumerate(list(quiet) + [False]):
+        if q and st is None: st = i
+        if not q and st is not None:
+            if (i - st) * win >= min_len: res.append((st * n, i * n))
+            st = None
+    return res
+
+def align(a, ls):
+    """Границы строк внутри аудио: по паузам, ближе всего к ожидаемому по числу букв месту."""
+    sil = silences(a); bounds = [0]
+    chars = [max(1, len(l)) for l in ls]
+    for k in range(1, len(ls)):
+        prev = bounds[-1]
+        rate = (len(a) - prev) / sum(chars[k - 1:])
+        exp = prev + chars[k - 1] * rate
+        win = max(SR * 2.0, chars[k - 1] * rate * 0.35)
+        best, score = None, None
+        for s0, s1 in sil:
+            mid = (s0 + s1) / 2
+            if mid <= prev + SR * 1.0 or abs(mid - exp) > win: continue
+            sc = (s1 - s0) / SR * 2.0 - abs(mid - exp) / SR * 0.25
+            if score is None or sc > score: best, score = mid, sc
+        bounds.append(int(best if best is not None else exp))
+    bounds.append(len(a))
+    return bounds
+
+def _w(t):
+    return re.sub(r"[^0-9a-zа-яё]+", "", t.lower().replace("ё", "е"))
+
+def align_whisper(a, ls):
+    """Точные границы: распознаём речь (faster-whisper) и ищем начало каждой строки по первым словам."""
+    try:
+        from faster_whisper import WhisperModel
+        import difflib
+    except Exception as e:
+        print("whisper недоступен:", e, flush=True); return None
+    try:
+        model = WhisperModel(os.environ.get("WHISPER_MODEL", "small"), device="cpu", compute_type="int8")
+        segs, _ = model.transcribe(a.astype(np.float32), language="ru", word_timestamps=True, vad_filter=False,
+                                   beam_size=1, initial_prompt="Новости Германии и мира.")
+        words = [(w.start, _w(w.word)) for sg in segs for w in (sg.words or []) if _w(w.word)]
+    except Exception as e:
+        print("whisper ошибка:", e, flush=True); return None
+    if len(words) < 20: return None
+    sil = silences(a, min_len=0.12)
+    bounds, wi = [0], 0
+    chars = [max(1, len(l)) for l in ls]
+    for k in range(1, len(ls)):
+        target = "".join(_w(x) for x in split_speaker(ls[k])[1].split()[:5])
+        prev_t = bounds[-1] / SR
+        exp_t = prev_t + chars[k - 1] * ((len(a) - bounds[-1]) / SR) / sum(chars[k - 1:])
+        best, bs = None, 0.0
+        for j in range(wi, len(words)):
+            t0 = words[j][0]
+            if t0 <= prev_t + 1.0: continue
+            if t0 > exp_t + max(25, exp_t - prev_t): break
+            cand = "".join(w for _, w in words[j:j + 8])[:len(target) + 4]
+            r = difflib.SequenceMatcher(None, target, cand[:len(target)]).ratio()
+            r -= min(abs(t0 - exp_t) / 200, 0.1)
+            if r > bs: best, bs = j, r
+        if best is None or bs < 0.55:
+            print(f"  строка {k+1}: не нашёл по словам ({bs:.2f}), беру по паузам", flush=True)
+            return None
+        t = words[best][0]; wi = best + 1
+        x = int(t * SR) - int(SR * 0.12)
+        near = [(abs((s0 + s1) / 2 - x), (s0 + s1) // 2) for s0, s1 in sil if s1 >= x - SR * 0.9 and s0 <= x + SR * 0.1]
+        bounds.append(int(min(near)[1]) if near else max(bounds[-1] + 1, x))
+    bounds.append(len(a))
+    print("границы по распознаванию речи: " + ", ".join(f"{b/SR:.1f}" for b in bounds[1:-1]), flush=True)
+    return bounds
+
+def norm(a):
+    rms = np.sqrt(np.mean(a ** 2)) or 1
+    return a * (0.11 / rms)
+
+key = hashlib.sha256(json.dumps([lines, SPK, MODEL], ensure_ascii=False).encode()).hexdigest()[:16]
+speech, bounds = None, None
+try:
+    c = json.load(open(f"{CACHE}/speech.json", encoding="utf-8"))
+    if c.get("key") == key and os.path.exists(f"{CACHE}/speech.wav"):
+        speech, bounds = load_audio(f"{CACHE}/speech.wav"), c["bounds"]
+        print("речь взята из кэша (озвучка не нужна)", flush=True)
+except Exception:
+    pass
+if speech is None and meta.get("reuse_audio") and os.path.exists(f"{CACHE}/legacy_audio.wav"):
+    # речь из прошлой сборки (джингл 15 c + 0,4 c тишины в начале и в конце)
+    full_old = load_audio(f"{CACHE}/legacy_audio.wav")
+    speech = full_old[int(SR * 15.4): len(full_old) - int(SR * 15.4)]
+    bounds = align_whisper(speech, lines) or align(speech, lines)
+    print(f"речь взята из прошлой сборки: {len(speech)/SR:.1f} c", flush=True)
+if speech is None:
+    chunks = chunk(lines)
+    print(f"{len(chunks)} частей", flush=True)
+    sp_parts, bounds, pos = [], [], 0
+    for i, c in enumerate(chunks, 1):
+        print(f"озвучка {i}/{len(chunks)}", flush=True)
+        a = norm(tts(c))
+        b = align(a, c)
+        bounds += [pos + x for x in b[:-1]]
+        sp_parts.append(a); pos += len(a)
+        pz = np.zeros(int(SR * 0.3), dtype=np.float32); sp_parts.append(pz); pos += len(pz)
+    bounds.append(pos)
+    speech = np.concatenate(sp_parts)
+    bounds = align_whisper(speech, lines) or bounds
+os.makedirs(f"{out}/cache", exist_ok=True)
+sf = (np.clip(speech, -1, 1) * 32767).astype("<i2").tobytes()
+open(f"{work}/speech.pcm", "wb").write(sf)
+run(["ffmpeg", "-y", "-v", "error", "-f", "s16le", "-ar", str(SR), "-ac", "1", "-i", f"{work}/speech.pcm", f"{out}/speech.wav"])
+json.dump({"key": key, "bounds": [int(x) for x in bounds]}, open(f"{out}/speech.json", "w"))
 
 def fade(j, fi, fo):
     j[:fi] *= np.linspace(0, 1, fi); j[-fo:] *= np.linspace(1, 0, fo); return j
@@ -114,26 +244,22 @@ song_path = next(iter(glob.glob("assets/song.*")), None)
 end_mode = meta.get("ending", "song")
 if end_mode == "none": ending = np.zeros(int(SR * 2), dtype=np.float32)
 elif end_mode == "song" and song_path:
-    s = fade(load_audio(song_path), int(SR * 0.3), int(SR * 3)); ending = s / (np.abs(s).max() or 1) * 0.5
+    s_ = fade(load_audio(song_path), int(SR * 0.3), int(SR * 3)); ending = s_ / (np.abs(s_).max() or 1) * 0.5
 else: ending = jingle.copy()
 
 gap = np.zeros(int(SR * 0.4), dtype=np.float32)
-pause = np.zeros(int(SR * 0.45), dtype=np.float32)
-pieces, timeline, pos = [jingle, gap], [], len(jingle) + len(gap)
-for a in speech_parts:
-    timeline.append((pos / SR, (pos + len(a) + len(pause)) / SR))
-    pieces += [a, pause]; pos += len(a) + len(pause)
+off = len(jingle) + len(gap)
+timeline = [((off + bounds[k]) / SR, (off + bounds[k + 1]) / SR) for k in range(len(lines))]
 intro_end = timeline[0][0]
-outro_start = pos / SR
-pieces += [gap, ending]
-full = np.concatenate(pieces)
+outro_start = (off + len(speech)) / SR
+full = np.concatenate([jingle, gap, speech, gap, ending])
 total = len(full) / SR
 pcm = (np.clip(full, -1, 1) * 32767).astype("<i2").tobytes()
 open(f"{work}/raw.pcm", "wb").write(pcm)
 run(["ffmpeg", "-y", "-v", "error", "-f", "s16le", "-ar", str(SR), "-ac", "1", "-i", f"{work}/raw.pcm",
      "-af", "loudnorm=I=-16:TP=-1.5:LRA=7", "-ar", "48000", f"{out}/audio.wav"])
-os.remove(f"{work}/raw.pcm")
-print(f"звук: {total:.1f} c, сюжетов {len(timeline)}", flush=True)
+os.remove(f"{work}/raw.pcm"); os.remove(f"{work}/speech.pcm")
+print(f"звук: {total:.1f} c, сюжетов {len(timeline)}: " + ", ".join(f"{b-a:.0f}" for a, b in timeline), flush=True)
 
 # ---------------------------------------------------------------- видео с Commons
 OK_LIC = re.compile(r"^(cc0|cc[- ]?zero|public domain|pd|pdm|cc[- ]by(-sa)?[- ]?\d(\.\d)?( [a-z]{2,3})?|attribution|attribution-sharealike)", re.I)
