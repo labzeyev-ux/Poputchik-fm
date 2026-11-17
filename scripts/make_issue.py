@@ -167,6 +167,7 @@ def align_whisper(a, ls):
         segs, _ = model.transcribe(a.astype(np.float32), language="ru", word_timestamps=True, vad_filter=False,
                                    beam_size=1, initial_prompt="Новости Германии и мира.")
         words = [(w.start, _w(w.word)) for sg in segs for w in (sg.words or []) if _w(w.word)]
+        print(f"whisper: распознано слов {len(words)}", flush=True)
     except Exception as e:
         print("whisper ошибка:", e, flush=True); return None
     if len(words) < 20: return None
@@ -202,19 +203,23 @@ def norm(a):
     return a * (0.11 / rms)
 
 key = hashlib.sha256(json.dumps([lines, SPK, MODEL], ensure_ascii=False).encode()).hexdigest()[:16]
-speech, bounds = None, None
+speech, bounds, method = None, None, "pauses"
 try:
     c = json.load(open(f"{CACHE}/speech.json", encoding="utf-8"))
     if c.get("key") == key and os.path.exists(f"{CACHE}/speech.wav"):
-        speech, bounds = load_audio(f"{CACHE}/speech.wav"), c["bounds"]
-        print("речь взята из кэша (озвучка не нужна)", flush=True)
-except Exception:
-    pass
+        speech, bounds, method = load_audio(f"{CACHE}/speech.wav"), c["bounds"], c.get("method", "pauses")
+        print(f"речь взята из кэша (озвучка не нужна), границы: {method}", flush=True)
+        if method != "whisper":
+            wb = align_whisper(speech, lines)
+            if wb: bounds, method = wb, "whisper"
+except Exception as e:
+    print("кэш речи:", e, flush=True)
 if speech is None and meta.get("reuse_audio") and os.path.exists(f"{CACHE}/legacy_audio.wav"):
     # речь из прошлой сборки (джингл 15 c + 0,4 c тишины в начале и в конце)
     full_old = load_audio(f"{CACHE}/legacy_audio.wav")
     speech = full_old[int(SR * 15.4): len(full_old) - int(SR * 15.4)]
-    bounds = align_whisper(speech, lines) or align(speech, lines)
+    wb = align_whisper(speech, lines)
+    bounds, method = (wb, "whisper") if wb else (align(speech, lines), "pauses")
     print(f"речь взята из прошлой сборки: {len(speech)/SR:.1f} c", flush=True)
 if speech is None:
     chunks = chunk(lines)
@@ -229,12 +234,13 @@ if speech is None:
         pz = np.zeros(int(SR * 0.3), dtype=np.float32); sp_parts.append(pz); pos += len(pz)
     bounds.append(pos)
     speech = np.concatenate(sp_parts)
-    bounds = align_whisper(speech, lines) or bounds
+    wb = align_whisper(speech, lines)
+    if wb: bounds, method = wb, "whisper"
 os.makedirs(f"{out}/cache", exist_ok=True)
 sf = (np.clip(speech, -1, 1) * 32767).astype("<i2").tobytes()
 open(f"{work}/speech.pcm", "wb").write(sf)
 run(["ffmpeg", "-y", "-v", "error", "-f", "s16le", "-ar", str(SR), "-ac", "1", "-i", f"{work}/speech.pcm", f"{out}/speech.wav"])
-json.dump({"key": key, "bounds": [int(x) for x in bounds]}, open(f"{out}/speech.json", "w"))
+json.dump({"key": key, "bounds": [int(x) for x in bounds], "method": method}, open(f"{out}/speech.json", "w"))
 
 def fade(j, fi, fo):
     j[:fi] *= np.linspace(0, 1, fi); j[-fo:] *= np.linspace(1, 0, fo); return j
