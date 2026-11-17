@@ -264,7 +264,7 @@ print(f"звук: {total:.1f} c, сюжетов {len(timeline)}: " + ", ".join(f
 # ---------------------------------------------------------------- видео с Commons
 OK_LIC = re.compile(r"^(cc0|cc[- ]?zero|public domain|pd|pdm|cc[- ]by(-sa)?[- ]?\d(\.\d)?( [a-z]{2,3})?|attribution|attribution-sharealike)", re.I)
 BAD_LIC = re.compile(r"\b(nc|nd|noncommercial|no derivatives|fair use|non-free)\b", re.I)
-BAD_TITLE = re.compile(r"hitler|nazi|1939|reichstag speech|execution|corpse|beheading|porn|gameplay|minecraft|explained in|tutorial|vertical|unbranded", re.I)
+BAD_TITLE = re.compile(r"\.sbs\.|stereoscop|hitler|nazi|1939|reichstag speech|execution|corpse|beheading|porn|gameplay|minecraft|explained in|tutorial|vertical|unbranded", re.I)
 session = requests.Session(); session.headers["User-Agent"] = UA
 _last = [0.0]
 
@@ -487,6 +487,7 @@ seg_clips = []
 for i, (seg, (t0, t1)) in enumerate(zip(SEGS, timeline)):
     dur = t1 - t0
     k = 1 if dur < 13 else (2 if dur < 28 else 3)
+    k = min(k, int(seg.get("max_clips") or k))
     clips = pick_clips(seg, dur, k)
     print(f"сюжет {i+1}: {dur:.1f} c, клипов {len(clips)}: " + "; ".join(c["title"][5:60] for c in clips), flush=True)
     seg_clips.append(clips)

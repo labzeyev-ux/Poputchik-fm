@@ -36,43 +36,38 @@
     {
       "rubric": "",
       "headline": "Главное за день · 17 ноября",
-      "files": [],
-      "queries": [
-        "Reichstag Berlin aerial",
-        "Berlin skyline drone"
-      ]
+      "files": [
+        "BERLIN VIA DRONE by STUDIO K.webm",
+        "Tempelhofer Feld.webm"
+      ],
+      "queries": []
     },
     {
       "rubric": "Политика",
       "headline": "Коалиционный комитет: снизят ли налог на электричество",
       "files": [
-        "Kanzleramt bundestag siegessäule.sbs.webm",
+        "The Reichstag Building, Berlin.webm",
         "Inspection pylône.webm"
       ],
-      "queries": [
-        "Bundeskanzleramt Berlin",
-        "Hochspannungsleitung"
-      ]
+      "queries": []
     },
     {
       "rubric": "Пенсии",
       "headline": "Пенсия за ноябрь придёт 30 ноября",
-      "files": [],
-      "queries": [
-        "Deutsche Rentenversicherung",
-        "senior citizens park",
-        "Euro banknotes counting"
-      ]
+      "files": [
+        "New 20 Euro Banknotes Printing Production.webm"
+      ],
+      "queries": [],
+      "max_clips": 1
     },
     {
       "rubric": "Экономика",
       "headline": "ЕС удвоил прогноз роста для Германии: 1,3%",
-      "files": [],
-      "queries": [
-        "Containerterminal Hamburg",
-        "container ship port Hamburg",
-        "European Commission Berlaymont"
-      ]
+      "files": [
+        "Hamburg (Timelapse-Test).webm",
+        "Container ship.webm"
+      ],
+      "queries": []
     },
     {
       "rubric": "Мир",
@@ -81,9 +76,7 @@
         "Video 2026-11-17 13-25-19.webm",
         "Crimean Bridge in 2021 as viewed by a FPV drone.webm"
       ],
-      "queries": [
-        "Crimean Bridge"
-      ]
+      "queries": []
     },
     {
       "rubric": "Мир",
@@ -92,19 +85,16 @@
         "Patriot Live Fire (563866).webm",
         "Army Air Defenders Conduct Patriot Reload Drills (959198).webm"
       ],
-      "queries": [
-        "Patriot missile system"
-      ]
+      "queries": []
     },
     {
       "rubric": "Мир",
       "headline": "АТЭС: ожидается встреча Путина, Си и Трампа",
-      "files": [],
-      "queries": [
-        "President Trump Greets the President of the People's Republic of China",
-        "Putin Xi Jinping talks",
-        "APEC summit"
-      ]
+      "files": [
+        "President Trump Greets the President of the People's Republic of China - October 29, 2025.webm",
+        "Владимир Путин поздравил Си Цзиньпина с Днём рождения. 15 июня 2019 года. Kremlin.ru.webm"
+      ],
+      "queries": []
     },
     {
       "rubric": "Криминал",
@@ -112,51 +102,46 @@
       "files": [
         "Above Mönchengladbach 105112.webm"
       ],
-      "queries": [
-        "Polizei Streifenwagen",
-        "police car Germany"
-      ]
+      "queries": [],
+      "max_clips": 1
     },
     {
       "rubric": "Не попадитесь",
       "headline": "Звонят «полицейские»: не отдавайте деньги",
       "files": [
-        "Blaues Kompakttelefon mit Wähltasten (ca. 1988).webm"
+        "Blaues Kompakttelefon mit Wähltasten (ca. 1988).webm",
+        "Telefon W48 Deutsche Bundespost 1950er Jahre.webm"
       ],
-      "queries": [
-        "Polizei Blaulicht",
-        "telephone ringing"
-      ]
+      "queries": []
     },
     {
       "rubric": "Не попадитесь",
       "headline": "Фальшивые письма от «Kleinanzeigen»",
-      "files": [],
-      "queries": [
-        "laptop keyboard typing",
-        "computer email",
-        "typing on keyboard"
-      ]
+      "files": [
+        "Speed typing with dvorak.webm"
+      ],
+      "queries": [],
+      "max_clips": 1
     },
     {
       "rubric": "Не попадитесь",
       "headline": "Фишинг от имени Commerzbank: «фотоТАН отключён»",
-      "files": [],
-      "queries": [
-        "smartphone app screen",
-        "using smartphone",
-        "mobile phone hands"
-      ]
+      "files": [
+        "Gigaset Smartphone Production IV Quality Inspection.webm",
+        "Gigaset Smartphone Production V Attaching the Label.webm"
+      ],
+      "queries": []
     },
     {
       "rubric": "Звёзды",
       "headline": "Роберт Паттинсон — новый Джеймс Бонд",
-      "files": [],
+      "files": [
+        "Climax! Casino Royale ( TV 1954) JAMES BOND Barry Nelson.webm"
+      ],
       "queries": [
-        "Robert Pattinson",
-        "film premiere red carpet",
-        "cinema audience"
-      ]
+        "Casino Royale 1954 Climax"
+      ],
+      "max_clips": 1
     },
     {
       "rubric": "Нефть",
@@ -164,10 +149,7 @@
       "files": [
         "Working pumpjack in Daqing 20240427092054.webm"
       ],
-      "queries": [
-        "oil tanker at sea",
-        "pumpjack"
-      ],
+      "queries": [],
       "card": [
         "Brent",
         "≈ $92 ▼"
@@ -177,17 +159,16 @@
     {
       "rubric": "Валюты",
       "headline": "Евро у минимума за год",
-      "files": [],
-      "queries": [
-        "European Central Bank Frankfurt",
-        "Frankfurt skyline",
-        "Euro banknotes"
+      "files": [
+        "5k-resolution video of Frankfurt, Germany 2014-02-02.webm"
       ],
+      "queries": [],
       "card": [
         "EUR/USD",
         "≈ 1,10 ▼"
       ],
-      "card_color": "#FF5A5A"
+      "card_color": "#FF5A5A",
+      "max_clips": 1
     },
     {
       "rubric": "Крипта",
@@ -195,9 +176,7 @@
       "files": [
         "ASICMINER USB Block Erupter Bitcoin mining 20131007 2.ogv"
       ],
-      "queries": [
-        "Bitcoin mining"
-      ],
+      "queries": [],
       "card": [
         "BTC",
         "≈ $64 300 ▼"
@@ -207,12 +186,11 @@
     {
       "rubric": "Слово дня",
       "headline": "Aufschieberitis — «болезнь откладывания»",
-      "files": [],
-      "queries": [
-        "paperwork documents desk",
-        "office papers",
-        "writing documents"
-      ]
+      "files": [
+        "Document scanning action video with document scanner Fujitsu ScanSnap S1500.webm",
+        "Olivetti Lettera 22 - typing a document using tab stops.webm"
+      ],
+      "queries": []
     },
     {
       "rubric": "Весёлые новости",
@@ -220,40 +198,35 @@
       "files": [
         "Hamburg 20260815 Bahnhof Elbbrücken S-Bahn.webm"
       ],
-      "queries": [
-        "Düsseldorf Rheinufer",
-        "Hamburg Elbphilharmonie"
-      ]
+      "queries": [],
+      "max_clips": 1
     },
     {
       "rubric": "Весёлые новости",
       "headline": "Самый большой экодук: первые гости — койоты",
       "files": [
-        "Drone video of Kolu wildlife overpass in Estonia.webm"
+        "Drone video of Kolu wildlife overpass in Estonia.webm",
+        "Coyote in Los Angeles.webm"
       ],
-      "queries": [
-        "coyote",
-        "Wallis Annenberg Wildlife Crossing"
-      ]
+      "queries": []
     },
     {
       "rubric": "Абсурд дня",
       "headline": "Почему падали Outlook и Teams",
-      "files": [],
-      "queries": [
-        "server room",
-        "data center servers",
-        "Rechenzentrum"
-      ]
+      "files": [
+        "What's Inside This Decommissioned Data Center-.webm",
+        "Supermicro Ampere Server and Nvidia Grace Hopper Super Chip.webm"
+      ],
+      "queries": []
     },
     {
       "rubric": "",
       "headline": "Новый выпуск — завтра в 18:00",
-      "files": [],
-      "queries": [
-        "Brandenburger Tor",
-        "Berlin aerial evening"
-      ]
+      "files": [
+        "BERLIN TELEVISION TOWER • BERLIININ TELEVISIOTORNI (HD1080).webm",
+        "Berlin-Friedrichshain Liebesinsel Januar 2015.webm"
+      ],
+      "queries": []
     }
   ],
   "reuse_audio": true
