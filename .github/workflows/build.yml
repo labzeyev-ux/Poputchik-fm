@@ -13,7 +13,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,6 +41,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="$(basename "${{ steps.pick.outputs.issue }}")"
+          # сборка не из main — тестовая, отдельный тег, основной выпуск не трогаем
+          [ "${GITHUB_REF_NAME}" = "main" ] || TAG="${TAG}-test"
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          gh release create "$TAG" out/video.mp4 out/audio.wav out/cover.png out/meta.json \
-            --title "Выпуск $TAG" --notes "Автосборка"
+          gh release create "$TAG" out/video.mp4 out/audio.wav out/cover.png out/meta.json out/credits.txt out/contact.jpg \
+            --title "Выпуск $TAG" --notes-file out/credits.txt

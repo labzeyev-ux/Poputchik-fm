@@ -2,11 +2,11 @@
   "show": "ГЛАВНОЕ ЗА ДЕНЬ",
   "subtitle": "Новости Германии и мира",
   "date_line": "Вторник, 17 ноября 2026",
-  "footer": "Новости на русском для жителей Германии · голос ведущего создан ИИ",
+  "footer": "Новости на русском для жителей Германии · голос ведущей создан ИИ",
   "speakers": [
     [
-      "Максим",
-      "Charon"
+      "Анна",
+      "Kore"
     ]
   ],
   "ending": "jingle",
@@ -19,7 +19,7 @@
     "Курсы: нефть, евро, биткоин"
   ],
   "title": "Крымский мост рухнул / Паттинсон — новый Бонд / Налог на свет снизят? | Главное за день 17.11",
-  "description": "Главное за 17 ноября 2026:\n— Коалиция ищет деньги на снижение налога на электричество (заседание вечером)\n— Пенсии: выплата 30 ноября\n— ЕС удвоил прогноз роста для Германии до 1,3%\n— Крымский мост частично обрушился\n— Германия: 300 млн долларов на ПВО Украины\n— Мошенники: звонки «полицейских», фальшивые письма Kleinanzeigen и Commerzbank\n— Роберт Паттинсон — новый Джеймс Бонд\n— Нефть, евро, биткоин\n— Слово дня, весёлые новости, абсурд дня\n\nИсточники: ZDFheute, dpa, Handelsblatt, t-online, Verbraucherzentrale, Polizei Stuttgart, ABC News, ariva.de.\n\nГолос ведущего создан ИИ.\nНовый выпуск — завтра в 18:00!",
+  "description": "Главное за 17 ноября 2026:\n— Коалиция ищет деньги на снижение налога на электричество (заседание вечером)\n— Пенсии: выплата 30 ноября\n— ЕС удвоил прогноз роста для Германии до 1,3%\n— Крымский мост частично обрушился\n— Германия: 300 млн долларов на ПВО Украины\n— Мошенники: звонки «полицейских», фальшивые письма Kleinanzeigen и Commerzbank\n— Роберт Паттинсон — новый Джеймс Бонд\n— Нефть, евро, биткоин\n— Слово дня, весёлые новости, абсурд дня\n\nИсточники: ZDFheute, dpa, Handelsblatt, t-online, Verbraucherzentrale, Polizei Stuttgart, ABC News, ariva.de.\n\nГолос ведущей создан ИИ.\nНовый выпуск — завтра в 18:00!",
   "tags": [
     "новости германии",
     "главное за день",
@@ -31,5 +31,229 @@
     "джеймс бонд",
     "налог на электричество",
     "курс евро"
+  ],
+  "segments": [
+    {
+      "rubric": "",
+      "headline": "Главное за день · 17 ноября",
+      "files": [],
+      "queries": [
+        "Reichstag Berlin aerial",
+        "Berlin skyline drone"
+      ]
+    },
+    {
+      "rubric": "Политика",
+      "headline": "Коалиционный комитет: снизят ли налог на электричество",
+      "files": [
+        "Kanzleramt bundestag siegessäule.sbs.webm",
+        "Inspection pylône.webm"
+      ],
+      "queries": [
+        "Bundeskanzleramt Berlin",
+        "Hochspannungsleitung"
+      ]
+    },
+    {
+      "rubric": "Пенсии",
+      "headline": "Пенсия за ноябрь придёт 30 ноября",
+      "files": [],
+      "queries": [
+        "Deutsche Rentenversicherung",
+        "senior citizens park",
+        "Euro banknotes counting"
+      ]
+    },
+    {
+      "rubric": "Экономика",
+      "headline": "ЕС удвоил прогноз роста для Германии: 1,3%",
+      "files": [],
+      "queries": [
+        "Containerterminal Hamburg",
+        "container ship port Hamburg",
+        "European Commission Berlaymont"
+      ]
+    },
+    {
+      "rubric": "Мир",
+      "headline": "Крымский мост частично обрушился",
+      "files": [
+        "Video 2026-11-17 13-25-19.webm",
+        "Crimean Bridge in 2021 as viewed by a FPV drone.webm"
+      ],
+      "queries": [
+        "Crimean Bridge"
+      ]
+    },
+    {
+      "rubric": "Мир",
+      "headline": "Германия: ещё $300 млн на ПВО Украины",
+      "files": [
+        "Patriot Live Fire (563866).webm",
+        "Army Air Defenders Conduct Patriot Reload Drills (959198).webm"
+      ],
+      "queries": [
+        "Patriot missile system"
+      ]
+    },
+    {
+      "rubric": "Мир",
+      "headline": "АТЭС: ожидается встреча Путина, Си и Трампа",
+      "files": [],
+      "queries": [
+        "President Trump Greets the President of the People's Republic of China",
+        "Putin Xi Jinping talks",
+        "APEC summit"
+      ]
+    },
+    {
+      "rubric": "Криминал",
+      "headline": "NRW запретила группу из окружения «Hells Angels»",
+      "files": [
+        "Above Mönchengladbach 105112.webm"
+      ],
+      "queries": [
+        "Polizei Streifenwagen",
+        "police car Germany"
+      ]
+    },
+    {
+      "rubric": "Не попадитесь",
+      "headline": "Звонят «полицейские»: не отдавайте деньги",
+      "files": [
+        "Blaues Kompakttelefon mit Wähltasten (ca. 1988).webm"
+      ],
+      "queries": [
+        "Polizei Blaulicht",
+        "telephone ringing"
+      ]
+    },
+    {
+      "rubric": "Не попадитесь",
+      "headline": "Фальшивые письма от «Kleinanzeigen»",
+      "files": [],
+      "queries": [
+        "laptop keyboard typing",
+        "computer email",
+        "typing on keyboard"
+      ]
+    },
+    {
+      "rubric": "Не попадитесь",
+      "headline": "Фишинг от имени Commerzbank: «фотоТАН отключён»",
+      "files": [],
+      "queries": [
+        "smartphone app screen",
+        "using smartphone",
+        "mobile phone hands"
+      ]
+    },
+    {
+      "rubric": "Звёзды",
+      "headline": "Роберт Паттинсон — новый Джеймс Бонд",
+      "files": [],
+      "queries": [
+        "Robert Pattinson",
+        "film premiere red carpet",
+        "cinema audience"
+      ]
+    },
+    {
+      "rubric": "Нефть",
+      "headline": "Brent подешевел на 20% с конца октября",
+      "files": [
+        "Working pumpjack in Daqing 20240427092054.webm"
+      ],
+      "queries": [
+        "oil tanker at sea",
+        "pumpjack"
+      ],
+      "card": [
+        "Brent",
+        "≈ $92 ▼"
+      ],
+      "card_color": "#FF5A5A"
+    },
+    {
+      "rubric": "Валюты",
+      "headline": "Евро у минимума за год",
+      "files": [],
+      "queries": [
+        "European Central Bank Frankfurt",
+        "Frankfurt skyline",
+        "Euro banknotes"
+      ],
+      "card": [
+        "EUR/USD",
+        "≈ 1,10 ▼"
+      ],
+      "card_color": "#FF5A5A"
+    },
+    {
+      "rubric": "Крипта",
+      "headline": "Биткоин: −13% за неделю",
+      "files": [
+        "ASICMINER USB Block Erupter Bitcoin mining 20131007 2.ogv"
+      ],
+      "queries": [
+        "Bitcoin mining"
+      ],
+      "card": [
+        "BTC",
+        "≈ $64 300 ▼"
+      ],
+      "card_color": "#F7931A"
+    },
+    {
+      "rubric": "Слово дня",
+      "headline": "Aufschieberitis — «болезнь откладывания»",
+      "files": [],
+      "queries": [
+        "paperwork documents desk",
+        "office papers",
+        "writing documents"
+      ]
+    },
+    {
+      "rubric": "Весёлые новости",
+      "headline": "«Админ-найт»: вечеринка для бумажных дел",
+      "files": [
+        "Hamburg 20260815 Bahnhof Elbbrücken S-Bahn.webm"
+      ],
+      "queries": [
+        "Düsseldorf Rheinufer",
+        "Hamburg Elbphilharmonie"
+      ]
+    },
+    {
+      "rubric": "Весёлые новости",
+      "headline": "Самый большой экодук: первые гости — койоты",
+      "files": [
+        "Drone video of Kolu wildlife overpass in Estonia.webm"
+      ],
+      "queries": [
+        "coyote",
+        "Wallis Annenberg Wildlife Crossing"
+      ]
+    },
+    {
+      "rubric": "Абсурд дня",
+      "headline": "Почему падали Outlook и Teams",
+      "files": [],
+      "queries": [
+        "server room",
+        "data center servers",
+        "Rechenzentrum"
+      ]
+    },
+    {
+      "rubric": "",
+      "headline": "Новый выпуск — завтра в 18:00",
+      "files": [],
+      "queries": [
+        "Brandenburger Tor",
+        "Berlin aerial evening"
+      ]
+    }
   ]
 }
