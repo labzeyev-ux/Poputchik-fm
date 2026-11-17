@@ -44,8 +44,8 @@ def font(s, bold=True):
     p = (glob.glob(f"/usr/share/fonts/**/{name}", recursive=True) or [None])[0]
     return ImageFont.truetype(p, s)
 
-def run(cmd):
-    r = subprocess.run(cmd, capture_output=True, text=True)
+def run(cmd, timeout=900):
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if r.returncode != 0:
         raise RuntimeError(" ".join(cmd[:6]) + " ...\n" + r.stderr[-1500:])
     return r
@@ -199,7 +199,8 @@ def align_whisper(a, ls):
         print("whisper недоступен:", e, flush=True); return None
     try:
         model = WhisperModel(os.environ.get("WHISPER_MODEL", "small"), device="cpu", compute_type="int8")
-        segs, _ = model.transcribe(a.astype(np.float32), language="ru", word_timestamps=True, vad_filter=False,
+        a16 = np.interp(np.arange(0, len(a), SR / 16000), np.arange(len(a)), a).astype(np.float32)  # whisper ждёт 16 кГц
+        segs, _ = model.transcribe(a16, language="ru", word_timestamps=True, vad_filter=False,
                                    beam_size=1, condition_on_previous_text=False)
         words = [(w.start, _w(w.word)) for sg in segs for w in (sg.words or []) if _w(w.word)]
         print(f"whisper: распознано слов {len(words)}", flush=True)
@@ -207,6 +208,8 @@ def align_whisper(a, ls):
         print("whisper ошибка:", e, flush=True); return None
     if len(words) < 20: return None
     bounds, miss = match_bounds(words, ls, len(a), silences(a, min_len=0.12))
+    if any(b1 - b0 < SR * 2 for b0, b1 in zip(bounds, bounds[1:])) or bounds[-2] >= len(a):
+        print("whisper: границы не сходятся — беру паузы", flush=True); return None
     if miss > len(ls) // 3:
         print(f"whisper: нет опоры для {miss} строк — беру паузы", flush=True); return None
     print("границы по распознаванию речи: " + ", ".join(f"{b/SR:.1f}" for b in bounds[1:-1]), flush=True)
@@ -267,6 +270,9 @@ elif end_mode == "song" and song_path:
     s_ = fade(load_audio(song_path), int(SR * 0.3), int(SR * 3)); ending = s_ / (np.abs(s_).max() or 1) * 0.5
 else: ending = jingle.copy()
 
+if len(bounds) != len(lines) + 1 or any(b1 - b0 < SR for b0, b1 in zip(bounds, bounds[1:])) or bounds[-1] != len(speech):
+    print("границы некорректны — делю по паузам заново", flush=True)
+    bounds = align(speech, lines)
 gap = np.zeros(int(SR * 0.4), dtype=np.float32)
 off = len(jingle) + len(gap)
 timeline = [((off + bounds[k]) / SR, (off + bounds[k + 1]) / SR) for k in range(len(lines))]
@@ -405,7 +411,8 @@ def fetch(c, start, dur, dst):
     try:
         run(["ffmpeg", "-y", "-v", "error", "-ss", f"{start:.2f}", "-t", f"{dur + 0.5:.2f}", "-i", local,
              "-an", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", dst])
-        return float(run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", dst]).stdout or 0)
+        got = float(run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", dst]).stdout or 0)
+        return got if got >= 1.0 else 0
     except Exception as e:
         print("  обработка не удалась:", str(e)[-300:], flush=True)
         return 0
