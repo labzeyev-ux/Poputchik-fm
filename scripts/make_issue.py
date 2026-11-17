@@ -7,14 +7,17 @@ from PIL import Image, ImageDraw, ImageFont
 SR = 24000
 KEY = os.environ["GEMINI_API_KEY"]
 MODEL = os.environ.get("TTS_MODEL", "gemini-3.8-flash-tts")
-N1, N2 = "Анна", "Максим"
-V1, V2 = "Kore", "Charon"
 
 issue = sys.argv[1]
 out = sys.argv[2] if len(sys.argv) > 2 else "out"
 os.makedirs(out, exist_ok=True)
 lines = [l.strip() for l in open(f"{issue}/script.txt", encoding="utf-8") if l.strip()]
 meta = json.load(open(f"{issue}/meta.json", encoding="utf-8"))
+# ведущие: по умолчанию Анна и Максим; meta["speakers"] = [["Имя","Голос"], ...] (1 или 2 ведущих)
+SPK = meta.get("speakers") or [["Анна", "Kore"], ["Максим", "Charon"]]
+N1, V1 = SPK[0]
+N2, V2 = SPK[1] if len(SPK) > 1 else SPK[0]
+SINGLE = len(SPK) == 1
 
 def chunk(lines, limit=2500):
     res, cur, n = [], [], 0
@@ -34,7 +37,13 @@ def tts(chunk_lines):
         else: sp = last
         last = sp; t = t.strip()
         if t: parts.append({"text": t, "speech_metadata": {"speaker": sp}})
-    body = {"contents": [{"parts": parts}],
+    if SINGLE:
+        text = "\n".join(p["text"] for p in parts)
+        body = {"contents": [{"parts": [{"text": text}]}],
+                "generationConfig": {"responseModalities": ["AUDIO"],
+                    "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": V1}}}}}
+    else:
+      body = {"contents": [{"parts": parts}],
             "generationConfig": {"responseModalities": ["AUDIO"],
                 "speechConfig": {"multiSpeakerVoiceConfig": {"speakerVoiceConfigs": [
                     {"speaker": N1, "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": V1}}},
@@ -86,7 +95,10 @@ jingle = load_jingle()
 gap = np.zeros(int(SR*0.4), dtype=np.float32)
 # в конце выпуска: песня канала (assets/song.mp3), если она есть, иначе джингл
 song_path = next(iter(glob.glob("assets/song.*")), None)
-ending = load_song(song_path) if song_path else jingle
+end_mode = meta.get("ending", "song")  # song | jingle | none
+if end_mode == "none": ending = np.zeros(1, dtype=np.float32)
+elif end_mode == "song" and song_path: ending = load_song(song_path)
+else: ending = jingle
 full = np.concatenate([jingle, gap, speech, gap, ending])
 pcm = (np.clip(full, -1, 1) * 32767).astype("<i2").tobytes()
 open(f"{out}/raw.pcm", "wb").write(pcm)
@@ -103,13 +115,13 @@ im = Image.new("RGB", (W, H)); d = ImageDraw.Draw(im)
 for y in range(H):
     c = int(14 + 40*y/H); d.line([(0, y), (W, y)], fill=(c, 24+int(30*y/H), 60+int(60*y/H)))
 d.rectangle([0, 0, W, 16], fill=(255, 184, 0))
-d.text((120, 120), "ПОПУТЧИК FM", font=font(150), fill=(255, 255, 255))
-d.text((120, 300), "Новостной выпуск", font=font(78), fill=(255, 184, 0))
+d.text((120, 120), meta.get("show", "ПОПУТЧИК FM"), font=font(150), fill=(255, 255, 255))
+d.text((120, 300), meta.get("subtitle", "Новостной выпуск"), font=font(78), fill=(255, 184, 0))
 d.text((120, 400), meta["date_line"], font=font(56), fill=(220, 230, 255))
 y = 540
 for t in meta["bullets"][:6]:
     d.ellipse([125, y+16, 147, y+38], fill=(255, 184, 0)); d.text((170, y), t, font=font(50), fill=(255, 255, 255)); y += 76
-d.text((120, 1000), "Радио для тех, кто за рулём · голоса ведущих созданы ИИ", font=font(34), fill=(170, 185, 220))
+d.text((120, 1000), meta.get("footer", "Радио для тех, кто за рулём · голоса ведущих созданы ИИ"), font=font(34), fill=(170, 185, 220))
 im.save(f"{out}/cover.png")
 
 subprocess.run(["ffmpeg","-y","-v","error","-loop","1","-framerate","2","-i",f"{out}/cover.png","-i",f"{out}/audio.wav",
