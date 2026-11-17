@@ -19,7 +19,7 @@ FPS = 25
 W, H = 1920, 1080
 KEY = os.environ.get("GEMINI_API_KEY", "")
 MODEL = os.environ.get("TTS_MODEL", "gemini-3.8-flash-tts")
-UA = "PoputchikFM-builder/2.0 (GitHub Actions; news video builder)"
+UA = "NewsVideoBuilder/2.1 (https://www.mediawiki.org/wiki/API:Etiquette) python-requests/2"
 COMMONS = "https://commons.wikimedia.org/w/api.php"
 
 issue = sys.argv[1]
@@ -294,7 +294,7 @@ def info_of(page):
     w, h, dur = vi.get("width") or 0, vi.get("height") or 0, vi.get("duration") or 0
     ders = vi.get("derivatives") or []
     best = None
-    for want in (720, 1080, 576, 480):
+    for want in (720, 480, 576, 1080, 360):
         for d in ders:
             if d.get("height") == want and ("webm" in d.get("type", "") or "mp4" in d.get("type", "")):
                 best = d.get("src"); break
@@ -349,22 +349,46 @@ def pick_clips(seg, total_need, k):
     for c in res: used.add(c["title"])
     return res
 
+_dl_last = [0.0]
+def download(url, dst):
+    """Скачивает файл целиком одним запросом (так требует Wikimedia), с паузами и Retry-After."""
+    if os.path.exists(dst) and os.path.getsize(dst) > 10000: return True
+    for a in range(5):
+        wait = 2.5 - (time.time() - _dl_last[0])
+        if wait > 0: time.sleep(wait)
+        _dl_last[0] = time.time()
+        try:
+            with session.get(url, stream=True, timeout=60) as r:
+                if r.status_code == 200:
+                    size = int(r.headers.get("content-length") or 0)
+                    if size > 400_000_000:
+                        print(f"  слишком большой файл ({size//1_000_000} МБ), пропускаю", flush=True); return False
+                    with open(dst + ".part", "wb") as f:
+                        for ch in r.iter_content(1 << 20): f.write(ch)
+                    os.replace(dst + ".part", dst); return True
+                ra = int(r.headers.get("retry-after", "0") or 0)
+                print(f"  {r.status_code} от Wikimedia, жду {min(max(ra, 10 * (a + 1)), 180)} c", flush=True)
+                time.sleep(min(max(ra, 10 * (a + 1)), 180))
+        except requests.RequestException as e:
+            print("  загрузка:", e, flush=True); time.sleep(10 * (a + 1))
+    return False
+
 def fetch(c, start, dur, dst):
-    """Вырезает кусок клипа прямо по ссылке (без скачивания всего файла)."""
+    """Скачивает клип и вырезает нужный кусок 1920x1080."""
+    local = os.path.join(work, "dl_" + hashlib.md5(c["src"].encode()).hexdigest()[:12] + os.path.splitext(c["src"].split("?")[0])[1])
+    if c["src"].startswith("http"):
+        if not download(c["src"], local): return 0
+    else:
+        local = c["src"]
     vf = (f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},setsar=1,fps={FPS},"
           f"eq=brightness=-0.04:saturation=1.05")
-    for a in range(4):
-        try:
-            ua = ["-user_agent", UA] if c["src"].startswith("http") else []
-            run(["ffmpeg", "-y", "-v", "error"] + ua + ["-ss", f"{start:.2f}", "-t", f"{dur + 0.5:.2f}",
-                 "-i", c["src"], "-an", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-                 "-pix_fmt", "yuv420p", dst])
-            got = float(run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", dst]).stdout or 0)
-            if got >= 1: return got
-        except Exception as e:
-            print("  загрузка не удалась:", str(e)[-300:], flush=True)
-        time.sleep(5 * (a + 1))
-    return 0
+    try:
+        run(["ffmpeg", "-y", "-v", "error", "-ss", f"{start:.2f}", "-t", f"{dur + 0.5:.2f}", "-i", local,
+             "-an", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", dst])
+        return float(run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", dst]).stdout or 0)
+    except Exception as e:
+        print("  обработка не удалась:", str(e)[-300:], flush=True)
+        return 0
 
 # ---------------------------------------------------------------- графика
 YEL, WHITE = (255, 184, 0), (255, 255, 255)
