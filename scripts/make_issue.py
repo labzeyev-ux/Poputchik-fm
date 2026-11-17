@@ -155,58 +155,60 @@ def align(a, ls):
 def _w(t):
     return re.sub(r"[^0-9a-zа-яё]+", "", t.lower().replace("ё", "е"))
 
+def match_bounds(words, ls, total_len, sil):
+    """words: [(время_c, слово)] из распознавания; ls: строки сценария.
+    Сопоставляем весь текст сценария с распознанным (difflib) и берём время первого слова каждой строки."""
+    import difflib
+    sw, starts = [], []
+    for l in ls:
+        starts.append(len(sw))
+        sw += [_w(x) for x in split_speaker(l)[1].split() if _w(x)]
+    ww = [w for _, w in words]
+    sm = difflib.SequenceMatcher(None, sw, ww, autojunk=False)
+    m = {}
+    for blk in sm.get_matching_blocks():
+        for d in range(blk.size): m[blk.a + d] = words[blk.b + d][0]
+    print(f"сопоставлено слов: {len(m)} из {len(sw)}", flush=True)
+    bounds, miss = [0], 0
+    for k in range(1, len(ls)):
+        s0 = starts[k]; t = None
+        for j in range(s0, min(s0 + 8, len(sw))):
+            if j in m: t = m[j] - (j - s0) * 0.38; break
+        if t is None:
+            for j in range(s0 - 1, max(s0 - 8, -1), -1):
+                if j in m: t = m[j] + (s0 - j) * 0.38; break
+        if t is None:
+            miss += 1; x = None
+        else:
+            x = int(t * SR) - int(SR * 0.1)
+            near = [(abs((p0 + p1) / 2 - x), (p0 + p1) // 2) for p0, p1 in sil if p1 >= x - SR * 1.0 and p0 <= x + SR * 0.3]
+            if near: x = int(min(near)[1])
+        if x is None or x <= bounds[-1] + SR:
+            # нет опоры — делим по числу букв
+            rest = sum(len(l) for l in ls[k - 1:])
+            x = int(bounds[-1] + (total_len - bounds[-1]) * len(ls[k - 1]) / rest)
+        bounds.append(x)
+    bounds.append(total_len)
+    return bounds, miss
+
 def align_whisper(a, ls):
-    """Точные границы: распознаём речь (faster-whisper) и ищем начало каждой строки по первым словам."""
+    """Точные границы: распознаём речь (faster-whisper) и сопоставляем со сценарием."""
     try:
         from faster_whisper import WhisperModel
-        import difflib
     except Exception as e:
         print("whisper недоступен:", e, flush=True); return None
     try:
         model = WhisperModel(os.environ.get("WHISPER_MODEL", "small"), device="cpu", compute_type="int8")
         segs, _ = model.transcribe(a.astype(np.float32), language="ru", word_timestamps=True, vad_filter=False,
-                                   beam_size=1, initial_prompt="Новости Германии и мира.")
+                                   beam_size=1, condition_on_previous_text=False)
         words = [(w.start, _w(w.word)) for sg in segs for w in (sg.words or []) if _w(w.word)]
         print(f"whisper: распознано слов {len(words)}", flush=True)
     except Exception as e:
         print("whisper ошибка:", e, flush=True); return None
     if len(words) < 20: return None
-    sil = silences(a, min_len=0.12)
-    bounds, wi = [0], 0
-    failed = [0]
-    chars = [max(1, len(l)) for l in ls]
-    for k in range(1, len(ls)):
-        target = "".join(_w(x) for x in split_speaker(ls[k])[1].split()[:5])
-        prev_t = bounds[-1] / SR
-        exp_t = prev_t + chars[k - 1] * ((len(a) - bounds[-1]) / SR) / sum(chars[k - 1:])
-        best, bs = None, 0.0
-        for j in range(wi, len(words)):
-            t0 = words[j][0]
-            if t0 <= prev_t + 1.0: continue
-            if t0 > exp_t + max(25, exp_t - prev_t): break
-            cand = "".join(w for _, w in words[j:j + 8])[:len(target) + 4]
-            r = difflib.SequenceMatcher(None, target, cand[:len(target)]).ratio()
-            r -= min(abs(t0 - exp_t) / 200, 0.1)
-            if r > bs: best, bs = j, r
-        if best is None or bs < 0.5:
-            # только эта граница — по паузам, остальные остаются точными
-            win = max(SR * 2.0, chars[k - 1] * ((len(a) - bounds[-1]) / sum(chars[k - 1:])) * 0.35)
-            exp_x = exp_t * SR
-            cands = [((s1 - s0) / SR * 2 - abs((s0 + s1) / 2 - exp_x) / SR * 0.25, (s0 + s1) // 2)
-                     for s0, s1 in silences(a) if abs((s0 + s1) / 2 - exp_x) <= win and (s0 + s1) / 2 > bounds[-1] + SR]
-            x = int(max(cands)[1]) if cands else int(exp_x)
-            print(f"  строка {k+1}: по словам не нашёл ({bs:.2f}), граница по паузе {x/SR:.1f} c", flush=True)
-            bounds.append(x)
-            while wi < len(words) and words[wi][0] * SR < x: wi += 1
-            failed[0] += 1
-            continue
-        t = words[best][0]; wi = best + 1
-        x = int(t * SR) - int(SR * 0.12)
-        near = [(abs((s0 + s1) / 2 - x), (s0 + s1) // 2) for s0, s1 in sil if s1 >= x - SR * 0.9 and s0 <= x + SR * 0.1]
-        bounds.append(int(min(near)[1]) if near else max(bounds[-1] + 1, x))
-    bounds.append(len(a))
-    if failed[0] > len(ls) // 3:
-        print(f"whisper: не найдено {failed[0]} границ — беру паузы целиком", flush=True); return None
+    bounds, miss = match_bounds(words, ls, len(a), silences(a, min_len=0.12))
+    if miss > len(ls) // 3:
+        print(f"whisper: нет опоры для {miss} строк — беру паузы", flush=True); return None
     print("границы по распознаванию речи: " + ", ".join(f"{b/SR:.1f}" for b in bounds[1:-1]), flush=True)
     return bounds
 
