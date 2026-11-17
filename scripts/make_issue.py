@@ -173,6 +173,7 @@ def align_whisper(a, ls):
     if len(words) < 20: return None
     sil = silences(a, min_len=0.12)
     bounds, wi = [0], 0
+    failed = [0]
     chars = [max(1, len(l)) for l in ls]
     for k in range(1, len(ls)):
         target = "".join(_w(x) for x in split_speaker(ls[k])[1].split()[:5])
@@ -187,14 +188,25 @@ def align_whisper(a, ls):
             r = difflib.SequenceMatcher(None, target, cand[:len(target)]).ratio()
             r -= min(abs(t0 - exp_t) / 200, 0.1)
             if r > bs: best, bs = j, r
-        if best is None or bs < 0.55:
-            print(f"  строка {k+1}: не нашёл по словам ({bs:.2f}), беру по паузам", flush=True)
-            return None
+        if best is None or bs < 0.5:
+            # только эта граница — по паузам, остальные остаются точными
+            win = max(SR * 2.0, chars[k - 1] * ((len(a) - bounds[-1]) / sum(chars[k - 1:])) * 0.35)
+            exp_x = exp_t * SR
+            cands = [((s1 - s0) / SR * 2 - abs((s0 + s1) / 2 - exp_x) / SR * 0.25, (s0 + s1) // 2)
+                     for s0, s1 in silences(a) if abs((s0 + s1) / 2 - exp_x) <= win and (s0 + s1) / 2 > bounds[-1] + SR]
+            x = int(max(cands)[1]) if cands else int(exp_x)
+            print(f"  строка {k+1}: по словам не нашёл ({bs:.2f}), граница по паузе {x/SR:.1f} c", flush=True)
+            bounds.append(x)
+            while wi < len(words) and words[wi][0] * SR < x: wi += 1
+            failed[0] += 1
+            continue
         t = words[best][0]; wi = best + 1
         x = int(t * SR) - int(SR * 0.12)
         near = [(abs((s0 + s1) / 2 - x), (s0 + s1) // 2) for s0, s1 in sil if s1 >= x - SR * 0.9 and s0 <= x + SR * 0.1]
         bounds.append(int(min(near)[1]) if near else max(bounds[-1] + 1, x))
     bounds.append(len(a))
+    if failed[0] > len(ls) // 3:
+        print(f"whisper: не найдено {failed[0]} границ — беру паузы целиком", flush=True); return None
     print("границы по распознаванию речи: " + ", ".join(f"{b/SR:.1f}" for b in bounds[1:-1]), flush=True)
     return bounds
 
